@@ -14,8 +14,21 @@ android {
         versionCode = 4
         versionName = "1.3-free"
     }
+    // التوقيع يُفعَّل فقط إذا وُجدت متغيرات البيئة (في GitHub Actions من Secrets)؛ لا مفاتيح داخل المستودع
+    val keystorePath: String? = System.getenv("KEYSTORE_PATH")
+    signingConfigs {
+        if (keystorePath != null) {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
+            if (keystorePath != null) signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

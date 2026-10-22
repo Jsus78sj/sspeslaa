@@ -2,6 +2,10 @@
 
 تطبيق خفيف لعرض سرعة الإنترنت واستهلاك البيانات في شريط الإشعارات.
 
+## التحميل
+حمّل أحدث ملف APK من صفحة **[Releases](../../releases/latest)**، ثم ثبّته على جهاز Android 7.0 أو أحدث
+(قد تحتاج السماح بالتثبيت من «مصادر غير معروفة» للمتصفح أو مدير الملفات).
+
 ## المميزات
 - عرض السرعة لحظياً (تحميل/رفع) في إشعار دائم، مع خيار فصلهما في إشعارين
 - «الإشعار الذكي»: عند انقطاع الاتصال ينتقل الإشعار إلى قناة صامتة بلا أيقونة في شريط الحالة
@@ -26,3 +30,14 @@ Kotlin + Jetpack Compose + Room + TrafficStats + NetworkStatsManager + WorkManag
 - **GitHub Actions**: كل push يبني APK (debug) ويرفعه كـ artifact من تبويب Actions.
 - **محلياً**: افتح المشروع في Android Studio، أو ثبّت Gradle 8.6 ونفّذ مرة واحدة
   `gradle wrapper --gradle-version 8.6` لتوليد `gradlew` و`gradle-wrapper.jar`، ثم `./gradlew assembleDebug`.
+
+## نشر إصدار جديد (للمطوّر)
+```
+git tag v1.3 && git push origin v1.3
+```
+يبني سير العمل `release.yml` الملف وينشره في Releases. للحصول على APK موقَّع أضف في
+Settings ← Secrets: `KEYSTORE_BASE64` (محتوى ملف jks بصيغة base64) و`KEYSTORE_PASSWORD` و`KEY_ALIAS` و`KEY_PASSWORD`.
+بدونها يُنشر APK تجريبي (debug).
+
+## الرخصة
+MIT — انظر ملف LICENSE.
