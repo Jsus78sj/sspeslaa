@@ -1,9 +1,17 @@
 name: Release
 
-# ينشر ملف APK في صفحة Releases عند دفع وسم مثل v1.3
+# ينشر ملف APK في قسم Releases.
+# طريقتان: (1) تشغيل يدوي من تبويب Actions ← Release ← Run workflow
+#          (2) إنشاء إصدار/وسم يبدأ بـ v من واجهة GitHub
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'رقم الإصدار (مثال: v1.3)'
+        required: true
+        default: 'v1.3'
 
 permissions:
   contents: write
@@ -13,6 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HAS_KEYSTORE: ${{ secrets.KEYSTORE_BASE64 != '' }}
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
     steps:
       - uses: actions/checkout@v4
 
@@ -46,9 +55,15 @@ jobs:
             gradle --no-daemon assembleDebug
           fi
           mkdir -p dist
-          cp app/build/outputs/apk/*/*.apk "dist/SpeedMeterLite-${GITHUB_REF_NAME}.apk"
+          cp app/build/outputs/apk/*/*.apk "dist/SpeedMeterLite-${TAG}.apk"
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/*.apk --title "$GITHUB_REF_NAME" --generate-notes
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/*.apk --clobber
+          else
+            gh release create "$TAG" dist/*.apk --title "$TAG" --generate-notes --target "$GITHUB_SHA"
+          fi
