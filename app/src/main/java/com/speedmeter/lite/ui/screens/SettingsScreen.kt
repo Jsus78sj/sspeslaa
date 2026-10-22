@@ -1,5 +1,7 @@
 package com.speedmeter.lite.ui.screens
 
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,11 +37,18 @@ fun SettingsScreen() {
     val themeFlow = remember { ThemeManager.getThemeFlow(context) }
     val separateFlow = remember { SettingsManager.separateFlow(context) }
     val smartFlow = remember { SettingsManager.smartFlow(context) }
+    val iconModeFlow = remember { SettingsManager.iconModeFlow(context) }
     val selected by themeFlow.collectAsState(initial = ThemeManager.LIGHT)
     val separateSpeed by separateFlow.collectAsState(initial = false)
     val smartNotification by smartFlow.collectAsState(initial = true)
+    val iconMode by iconModeFlow.collectAsState(initial = SettingsManager.ICON_DOWN)
+    val iconModes = listOf(
+        SettingsManager.ICON_DOWN to "التحميل",
+        SettingsManager.ICON_UP to "الرفع",
+        SettingsManager.ICON_TOTAL to "المجموع (تحميل + رفع)"
+    )
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Text("الإعدادات", style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(16.dp))
 
@@ -70,6 +79,24 @@ fun SettingsScreen() {
                 checked = smartNotification,
                 onCheckedChange = { v -> scope.launch { SettingsManager.setSmart(context, v) } }
             )
+        }
+        Divider(Modifier.padding(vertical = 12.dp))
+        Text("السرعة المعروضة في شريط الحالة")
+        Text(
+            "تنطبق عند عدم فصل الإشعارين؛ عند الفصل تعرض كل أيقونة سرعتها",
+            style = MaterialTheme.typography.bodySmall
+        )
+        iconModes.forEach { (mode, label) ->
+            Row(
+                Modifier.fillMaxWidth().selectable(
+                    selected = iconMode == mode,
+                    onClick = { scope.launch { SettingsManager.setIconMode(context, mode) } }
+                ).padding(12.dp)
+            ) {
+                RadioButton(selected = iconMode == mode, onClick = null)
+                Spacer(Modifier.width(8.dp))
+                Text(label)
+            }
         }
         Text(
             "كل المميزات مفتوحة مجانا في هذه النسخة",

@@ -16,10 +16,12 @@ import android.os.IBinder
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
+import androidx.core.graphics.drawable.IconCompat
 import com.speedmeter.lite.MainActivity
 import com.speedmeter.lite.R
 import com.speedmeter.lite.utils.FormatUtils
 import com.speedmeter.lite.utils.SettingsManager
+import com.speedmeter.lite.utils.SpeedIconRenderer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -55,6 +57,7 @@ class SpeedService : Service() {
 
     @Volatile private var separateMode = false
     @Volatile private var smartMode = true
+    @Volatile private var iconMode = SettingsManager.ICON_DOWN
     @Volatile private var connected = true
     private var callbackRegistered = false
 
@@ -89,6 +92,7 @@ class SpeedService : Service() {
         // الإعدادات تُقرأ من DataStore وتتحدث فوراً عند تغييرها من شاشة الإعدادات
         scope.launch { SettingsManager.separateFlow(this@SpeedService).collect { separateMode = it } }
         scope.launch { SettingsManager.smartFlow(this@SpeedService).collect { smartMode = it } }
+        scope.launch { SettingsManager.iconModeFlow(this@SpeedService).collect { iconMode = it } }
         SpeedRepository.setRunning(true)
     }
 
@@ -96,7 +100,7 @@ class SpeedService : Service() {
         try {
             ServiceCompat.startForeground(
                 this, NOTIF_DOWN_ID,
-                buildNotification(CHANNEL_SPEED, "↓ 0 B/s  ↑ 0 B/s", "جاري القياس..."),
+                buildNotification(CHANNEL_SPEED, "↓ 0 B/s  ↑ 0 B/s", "جاري القياس...", SpeedIconRenderer.icon(0)),
                 foregroundType()
             )
         } catch (e: Exception) {
@@ -159,17 +163,23 @@ class SpeedService : Service() {
             val duration = String.format(Locale.US, "%02d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
 
             if (separateMode) {
-                nm.notify(NOTIF_DOWN_ID, buildNotification(CHANNEL_SPEED, "↓ ${FormatUtils.speed(down)}", "تحميل - $duration"))
-                nm.notify(NOTIF_UP_ID, buildNotification(CHANNEL_UPLOAD, "↑ ${FormatUtils.speed(up)}", "رفع - $duration"))
+                nm.notify(NOTIF_DOWN_ID, buildNotification(CHANNEL_SPEED, "↓ ${FormatUtils.speed(down)}", "تحميل - $duration", SpeedIconRenderer.icon(down)))
+                nm.notify(NOTIF_UP_ID, buildNotification(CHANNEL_UPLOAD, "↑ ${FormatUtils.speed(up)}", "رفع - $duration", SpeedIconRenderer.icon(up)))
                 upShown = true
             } else {
                 if (upShown) { nm.cancel(NOTIF_UP_ID); upShown = false }
+                val shown = when (iconMode) {
+                    SettingsManager.ICON_UP -> up
+                    SettingsManager.ICON_TOTAL -> down + up
+                    else -> down
+                }
                 nm.notify(
                     NOTIF_DOWN_ID,
                     buildNotification(
                         CHANNEL_SPEED,
                         "↓ ${FormatUtils.speed(down)}  ↑ ${FormatUtils.speed(up)}",
-                        "المدة: $duration | اضغط للتفاصيل"
+                        "المدة: $duration | اضغط للتفاصيل",
+                        SpeedIconRenderer.icon(shown)
                     )
                 )
             }
@@ -184,18 +194,20 @@ class SpeedService : Service() {
         nm.createNotificationChannel(NotificationChannel(CHANNEL_IDLE, "Idle (no connection)", NotificationManager.IMPORTANCE_MIN))
     }
 
-    private fun buildNotification(channel: String, title: String, sub: String): Notification =
-        NotificationCompat.Builder(this, channel)
+    /** [icon] = أيقونة شريط الحالة (تحمل رقم السرعة)؛ إن كانت null تُستخدم الأيقونة الثابتة. */
+    private fun buildNotification(channel: String, title: String, sub: String, icon: IconCompat? = null): Notification {
+        val b = NotificationCompat.Builder(this, channel)
             .setContentTitle(title)
             .setContentText(sub)
-            .setSmallIcon(R.drawable.ic_speed)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setShowWhen(false)
             .setPriority(if (channel == CHANNEL_IDLE) NotificationCompat.PRIORITY_MIN else NotificationCompat.PRIORITY_LOW)
             .setContentIntent(contentIntent)
             .setStyle(NotificationCompat.BigTextStyle().bigText("$title\n$sub"))
-            .build()
+        if (icon != null) b.setSmallIcon(icon) else b.setSmallIcon(R.drawable.ic_speed)
+        return b.build()
+    }
 
     override fun onDestroy() {
         if (callbackRegistered) {
